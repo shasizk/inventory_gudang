@@ -1,0 +1,424 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../views';
+@source '../js';
+
+/*
+ * Token desain "Smart Gudang"
+ * ink      : biru baja gelap (sidebar, teks utama, tombol utama)
+ * concrete : abu beton dingin (latar, garis)
+ * hazard   : kuning keselamatan gudang, HANYA untuk aksi scan & status pintu
+ * in/out/warn/ok/bad : status IN, OUT, WARNING, SUCCESS, DITOLAK
+ */
+@theme {
+  --font-sans: 'Barlow', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Barlow Semi Condensed', 'Barlow', ui-sans-serif, system-ui, sans-serif;
+  --font-code: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-ink-950: #0e1a26;
+  --color-ink-900: #1b2a3a;
+  --color-ink-800: #26394d;
+  --color-ink-700: #3b5167;
+  --color-ink-500: #53677b; /* v1.1: digelapkan, kontras 5,2:1 di latar beton (sebelumnya 4,2:1, gagal WCAG AA) */
+  --color-ink-400: #8396a8;
+  --color-ink-300: #aebbc8;
+
+  --color-concrete-50: #f8f9f9;
+  --color-concrete-100: #eff2f3;
+  --color-concrete-200: #e2e7ea;
+  --color-concrete-300: #cdd5db;
+
+  --color-hazard-300: #fcdb6b;
+  --color-hazard-500: #f2b705;
+  --color-hazard-700: #8f6b00;
+
+  --color-in-50: #eaf1fd;
+  --color-in-600: #1d5fd1;
+  --color-in-700: #164aa6;
+  --color-out-50: #fdeee6;
+  --color-out-600: #d4520c;
+  --color-out-700: #a63f08;
+  --color-warn-50: #fcf5dd;
+  --color-warn-600: #9a6b00;
+  --color-warn-700: #7a5400;
+  --color-ok-50: #e6f5ec;
+  --color-ok-600: #12824a;
+  --color-ok-700: #0c6538;
+  --color-bad-50: #fcebeb;
+  --color-bad-600: #c62828;
+  --color-bad-700: #9f1f1f;
+}
+
+@layer base {
+  html {
+    /* Lompatan anchor (#scan) tidak tertutup topbar yang sticky */
+    scroll-padding-top: 5.5rem;
+  }
+
+  body {
+    @apply bg-concrete-100 font-sans text-[15px] text-ink-900 antialiased;
+  }
+
+  h1, h2, h3 {
+    @apply font-display;
+  }
+
+  [x-cloak] {
+    display: none !important;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-in-600);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* Panel: satu-satunya "wadah" konten. Radius lebih besar dari input/badge agar hierarki terbaca. */
+  .panel {
+    @apply rounded-[10px] border border-concrete-300/80 bg-white;
+  }
+  .panel-head {
+    @apply flex flex-wrap items-center justify-between gap-3 border-b border-concrete-200 px-5 py-3.5;
+  }
+  .panel-title {
+    @apply font-display text-[17px] font-semibold leading-tight text-ink-900;
+  }
+
+  /* Tombol */
+  .btn {
+    @apply inline-flex h-10 items-center justify-center gap-2 rounded-md px-3.5 text-[15px] font-semibold whitespace-nowrap transition-colors select-none disabled:cursor-not-allowed disabled:opacity-55;
+  }
+  .btn-sm {
+    @apply h-8 gap-1.5 px-2.5 text-sm;
+  }
+  .btn-icon {
+    @apply h-8 w-8 px-0;
+  }
+  .btn-primary {
+    @apply bg-ink-900 text-white hover:bg-ink-800;
+  }
+  .btn-secondary {
+    @apply border border-concrete-300 bg-white text-ink-900 hover:border-ink-300 hover:bg-concrete-50;
+  }
+  .btn-ghost {
+    @apply text-ink-700 hover:bg-concrete-200/70 hover:text-ink-900;
+  }
+  .btn-danger {
+    @apply bg-bad-600 text-white hover:bg-bad-700;
+  }
+  .btn-scan {
+    @apply bg-hazard-500 text-ink-950 hover:bg-hazard-300;
+  }
+
+  /* Form */
+  .label {
+    @apply mb-1.5 block text-sm font-semibold text-ink-800;
+  }
+  .hint {
+    @apply mt-1.5 text-[13px] leading-snug text-ink-500;
+  }
+  .error-text {
+    @apply mt-1.5 text-[13px] font-medium text-bad-600;
+  }
+  .input {
+    @apply block h-10 w-full rounded-md border border-concrete-300 bg-white px-3 text-[15px] text-ink-900 transition-colors placeholder:text-ink-400 hover:border-ink-300 focus:border-in-600 focus:ring-2 focus:ring-in-600/20 focus:outline-none disabled:bg-concrete-100 disabled:text-ink-500;
+  }
+  textarea.input {
+    @apply h-auto py-2 leading-relaxed;
+  }
+  select.input {
+    appearance: none;
+    padding-right: 2.25rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%2361768b' stroke-width='2' stroke-linecap='round' viewBox='0 0 24 24'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.7rem center;
+  }
+  .input-error {
+    @apply border-bad-600 focus:border-bad-600 focus:ring-bad-600/20;
+  }
+  .check {
+    @apply size-4 rounded border-concrete-300 accent-ink-900;
+  }
+
+  /* Badge status: radius kecil, terasa seperti label/tag gudang */
+  .badge {
+    @apply inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[13px] leading-5 font-semibold whitespace-nowrap;
+  }
+  .badge-in { @apply bg-in-50 text-in-700; }
+  .badge-out { @apply bg-out-50 text-out-700; }
+  .badge-warn { @apply bg-warn-50 text-warn-700; }
+  .badge-ok { @apply bg-ok-50 text-ok-700; }
+  .badge-bad { @apply bg-bad-50 text-bad-700; }
+  .badge-neutral { @apply bg-concrete-100 text-ink-700; }
+  .badge-strong { @apply bg-concrete-200 text-ink-900; }
+  .badge-dark { @apply bg-ink-900 text-white; }
+  .badge-outline { @apply border border-ink-300 bg-white text-ink-800; }
+  .badge-pending { @apply bg-hazard-300/40 text-warn-700; }
+
+  /* Tabel */
+  .tbl {
+    @apply w-full border-collapse text-left text-[15px];
+  }
+  .tbl thead th {
+    @apply border-b border-concrete-200 bg-concrete-50 px-4 py-2.5 text-[13px] font-semibold whitespace-nowrap text-ink-500;
+  }
+  .tbl tbody td {
+    @apply border-b border-concrete-200 px-4 py-3 align-middle;
+  }
+  .tbl tbody tr:last-child td {
+    @apply border-b-0;
+  }
+  .tbl tbody tr:hover td {
+    @apply bg-concrete-50;
+  }
+  .code {
+    @apply font-code text-[13px] tracking-tight text-ink-800;
+  }
+  /* Kode di dalam tabel tidak pernah dipatah di tengah (SN-RTR-261021- / A7K2) */
+  .tbl .code {
+    white-space: nowrap;
+  }
+  /* Badge di sel tabel selalu satu baris & sejajar tengah dengan teks */
+  .tbl .badge {
+    vertical-align: middle;
+  }
+
+  /* Tabel log panjang: tinggi dibatasi, header tetap terlihat saat di-scroll */
+  .table-scroll {
+    max-height: min(70vh, 720px);
+    overscroll-behavior: contain;
+  }
+  .table-scroll .tbl thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    box-shadow: inset 0 -1px 0 var(--color-concrete-200);
+  }
+
+  /* Scrollbar sidebar tipis & menyatu dengan latar gelap */
+  .sidebar-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-ink-700) transparent;
+  }
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Navigasi */
+  .nav-link {
+    @apply relative flex items-center gap-3 rounded-md px-3 py-2 text-[15px] font-medium text-ink-300 transition-colors hover:bg-white/5 hover:text-white;
+  }
+  .nav-link[aria-current='page'] {
+    @apply bg-white/8 text-white;
+  }
+  .nav-link[aria-current='page']::before {
+    content: '';
+    position: absolute;
+    left: -12px;
+    top: 8px;
+    bottom: 8px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--color-hazard-500);
+  }
+
+  /* Modal */
+  .modal-head {
+    @apply flex items-start justify-between gap-4 border-b border-concrete-200 px-5 py-4;
+  }
+  .modal-title {
+    @apply font-display text-xl font-semibold leading-tight;
+  }
+  .modal-body {
+    @apply space-y-4 px-5 py-5;
+  }
+  .modal-foot {
+    @apply flex flex-col-reverse gap-2 border-t border-concrete-200 bg-concrete-50 px-5 py-3.5 sm:flex-row sm:justify-end;
+  }
+
+  /* Status UI */
+  .spinner {
+    @apply inline-block size-4 shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent;
+  }
+  .skeleton {
+    @apply animate-pulse rounded bg-concrete-200;
+  }
+
+  /* Pita hazard: dipakai di stasiun scan dan verifikasi 2 langkah. Satu-satunya elemen dekoratif yang "berani". */
+  .hazard-edge {
+    background-image: repeating-linear-gradient(-45deg, var(--color-hazard-500) 0 9px, var(--color-ink-900) 9px 18px);
+  }
+
+  /* Garis "laser" di bawah kolom scan, menandakan kolom siap menerima input scanner */
+  .scan-field {
+    position: relative;
+  }
+  .scan-field .scan-laser {
+    position: absolute;
+    left: 6px;
+    right: 6px;
+    bottom: 3px;
+    height: 2px;
+    overflow: hidden;
+    border-radius: 2px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .scan-field .scan-laser::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    width: 30%;
+    background: linear-gradient(90deg, transparent, var(--color-bad-600), transparent);
+    animation: laser-sweep 1.4s ease-in-out infinite alternate;
+  }
+  .scan-field:focus-within .scan-laser {
+    opacity: 1;
+  }
+
+  .toast-in {
+    animation: toast-in 0.22s ease-out;
+  }
+  .row-fresh {
+    animation: row-fresh 2.4s ease-out;
+  }
+}
+
+@keyframes laser-sweep {
+  from { transform: translateX(0); }
+  to { transform: translateX(233%); }
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes row-fresh {
+  from { background-color: color-mix(in srgb, var(--color-hazard-300) 45%, transparent); }
+  to { background-color: transparent; }
+}
+
+/* Cetak label barcode: hanya area .print-area yang ikut tercetak */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-area, .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    inset: 0;
+    padding: 8mm;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* LED reader di ilustrasi login: berkedip pelan seperti menunggu kartu */
+.reader-led {
+  animation: reader-led 2.4s ease-in-out infinite;
+}
+@keyframes reader-led {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* ---------- v1.3: tampilan HP ---------- */
+@media (max-width: 639.98px) {
+  /* Filter tambahan dilipat; dibuka lewat tombol "Filter" */
+  .filter-extra:not(.is-open) {
+    display: none;
+  }
+  .filter-extra > * {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  /* Tabel → kartu berlabel. Header disembunyikan secara visual tapi tetap ada untuk screen reader */
+  .tbl-stack thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .tbl-stack,
+  .tbl-stack tbody,
+  .tbl-stack tbody tr,
+  .tbl-stack tbody td {
+    display: block;
+    width: 100%;
+  }
+  .tbl-stack tbody tr {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--color-concrete-200);
+  }
+  .tbl-stack tbody tr:last-child {
+    border-bottom: 0;
+  }
+  .tbl.tbl-stack tbody td {
+    display: grid;
+    grid-template-columns: 7rem minmax(0, 1fr);
+    align-items: start;
+    gap: 2px 12px;
+    padding: 5px 0;
+    border: 0;
+    text-align: left;
+  }
+  .tbl.tbl-stack tbody tr:hover td {
+    background: transparent;
+  }
+  .tbl-stack tbody td::before {
+    content: attr(data-label);
+    padding-top: 2px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-ink-500);
+  }
+  /* Isi sel selalu di kolom kanan & tidak melebar: badge tetap seukuran teksnya */
+  .tbl-stack tbody td:not([data-label='']) > * {
+    grid-column: 2;
+  }
+  .tbl-stack tbody td > * {
+    justify-self: start;
+    max-width: 100%;
+  }
+  /* Sel tanpa label (mis. aksi): isi selebar kartu */
+  .tbl-stack tbody td[data-label=''] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tbl-stack tbody td[data-label='']::before {
+    content: none;
+  }
+  /* Isi rata kanan di desktop menjadi rata kiri di kartu */
+  .tbl-stack tbody td > .justify-end,
+  .tbl-stack tbody td > .inline-flex.justify-end {
+    justify-content: flex-start;
+  }
+  .tbl-stack tbody td [style*='max-width'] {
+    max-width: none !important;
+  }
+  .tbl-stack tbody tr.is-empty td {
+    display: block;
+    padding: 0;
+  }
+  .tbl-stack tbody tr.is-empty td::before {
+    content: none;
+  }
+  /* Di HP halaman yang di-scroll, bukan tabel (hindari scroll bertumpuk) */
+  .table-scroll {
+    max-height: none;
+  }
+}
