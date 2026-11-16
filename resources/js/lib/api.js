@@ -28,7 +28,7 @@ const messageFor = (status) =>
  * - Pesan error dari { message } atau error validasi pertama { errors }
  * - Mode demo (<meta name="ui-demo" content="1">) dijawab simulator lib/demo.js
  */
-export async function request(url, { method = 'GET', body, signal, timeout = 10_000 } = {}) {
+export async function request(url, { method = 'GET', body, signal, timeout = 10_000, cache } = {}) {
     if (isDemo()) return demoHandle(method, url, body);
     if (sessionExpired()) throw new HttpError(401, messageFor(401));
 
@@ -42,6 +42,7 @@ export async function request(url, { method = 'GET', body, signal, timeout = 10_
             method,
             signal: controller.signal,
             credentials: 'same-origin',
+            cache,
             headers: {
                 Accept: 'application/json',
                 'Content-Type': 'application/json',

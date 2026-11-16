@@ -79,7 +79,7 @@ export const doorStore = () => ({
             if (!force && ((document.hidden && this.updatedAt) || Date.now() < this._nextAt)) return;
             this._inflight = true;
             try {
-                this.apply(await request(url, { timeout: 8000 }));
+                this.apply(await request(url, { timeout: 8000, cache: 'no-store' }));
                 this.error = null;
                 this.failures = 0;
                 this._nextAt = 0;
@@ -93,7 +93,7 @@ export const doorStore = () => ({
             }
         };
         load(true);
-        setInterval(load, 5000);
+        setInterval(load, 1000);
         setInterval(() => (this.now = Date.now()), 1000);
         document.addEventListener('visibilitychange', () => !document.hidden && load(true));
     },
@@ -116,8 +116,20 @@ export const doorStore = () => ({
             short: door?.short || door?.name || `Pintu ${index + 1}`,
             online: door?.online === true || door?.online === 1 || door?.online === '1',
             locked: !(door?.locked === false || door?.locked === 0 || door?.locked === '0'),
+            door_open: door?.door_open === true || door?.door_open === 1 || door?.door_open === '1'
+                ? true
+                : door?.door_open === false || door?.door_open === 0 || door?.door_open === '0'
+                  ? false
+                  : null,
             last_seen: toDate(door?.last_seen) ? door.last_seen : null,
             last_event: door?.last_event || 'Belum ada aktivitas tercatat.',
+            forced_open: door?.forced_open && typeof door.forced_open === 'object'
+                ? {
+                      id: String(door.forced_open.id ?? ''),
+                      at: door.forced_open.at ?? null,
+                      message: door.forced_open.message || 'Pintu gudang dibuka paksa! Segera periksa lokasi.',
+                  }
+                : null,
             pending,
         };
     },
@@ -156,6 +168,13 @@ export const doorStore = () => ({
                 };
                 setTimeout(() => delete this.events[door.id], 6000);
             }
+            if (door.forced_open && door.forced_open.id !== before?.forced_open?.id) {
+                window.Alpine?.store('toast')?.error(
+                    'PERINGATAN: pintu dibuka paksa',
+                    door.forced_open.message,
+                    10_000,
+                );
+            }
             return { ...door, expiresAt };
         });
         this.updatedAt = t;
@@ -186,12 +205,15 @@ export const doorStore = () => ({
         return door.last_seen ? ago(door.last_seen) : 'belum pernah';
     },
     stateLabel(door) {
+        if (!door.online) return 'Offline';
+        if (door.door_open === true) return 'Pintu terbuka';
+        if (door.locked === false) return 'Kunci terbuka';
         return {
             offline: 'Offline',
             waiting: 'Menunggu verifikasi',
             timeout: 'Waktu habis',
             locked: 'Terkunci',
-            open: 'Terbuka',
+            open: 'Kunci terbuka',
         }[this.phase(door)];
     },
     get updatedLabel() {

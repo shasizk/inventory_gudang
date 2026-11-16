@@ -14,7 +14,7 @@ export default ({ endpoint, timeout = 30 } = {}) => ({
     _poll: null,
     _tick: null,
 
-    start() {
+    async start() {
         if (this.waiting) return;
         this.waiting = true;
         this.remaining = timeout;
@@ -44,13 +44,22 @@ export default ({ endpoint, timeout = 30 } = {}) => ({
             }
             this._poll = setTimeout(poll, 1500);
         };
-        poll();
+
+        try {
+            await request(`${endpoint}?action=start`);
+            if (this.waiting) poll();
+            else this.cancelCapture();
+        } catch (error) {
+            this.stop('error', error.message);
+        }
     },
 
     stop(reason = 'cancel', info = '') {
         clearInterval(this._tick);
         clearTimeout(this._poll);
+        const wasWaiting = this.waiting;
         this.waiting = false;
+        if (wasWaiting) this.cancelCapture();
         if (reason === 'found') {
             beep(true);
             this.$store.toast.success('Kartu terbaca', info ? `UID diambil dari ${info}.` : 'UID sudah diisi otomatis.');
@@ -60,6 +69,12 @@ export default ({ endpoint, timeout = 30 } = {}) => ({
         } else if (reason === 'error') {
             this.$store.toast.error('Reader tidak merespons', info);
         }
+    },
+
+    cancelCapture() {
+        request(`${endpoint}?action=cancel`).catch((error) => {
+            console.error('Gagal menghentikan capture UID RFID:', error);
+        });
     },
 
     destroy() {

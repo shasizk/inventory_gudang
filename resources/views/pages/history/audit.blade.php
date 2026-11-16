@@ -12,24 +12,19 @@
     <x-dev-missing :vars="$__missing" />
     @php
         $actions = [
-            'create' => ['Tambah', 'success'],
-            'update' => ['Ubah', 'neutral'],
-            'delete' => ['Hapus', 'danger'],
-            'login' => ['Masuk akun', 'neutral'],
-            'scan' => ['Scan', 'in'],
             'door' => ['Pintu', 'gudang'],
-            'export' => ['Ekspor', 'neutral'],
+            'forced_open' => ['Pintu dibuka paksa', 'danger'],
         ];
-        $modules = ['Kategori', 'Serial number', 'Barang masuk', 'Barang keluar', 'Kartu RFID', 'Akun web', 'Smart Lock', 'Laporan'];
+        $modules = ['Smart Lock'];
     @endphp
 
-    <x-page-header title="Audit log" description="Jejak semua aktivitas: perubahan data, scan, akses pintu, login, dan ekspor." />
+    <x-page-header title="Audit log" description="Log aktual akses pintu gudang dan alarm, termasuk kejadian pintu dibuka paksa." />
 
     <x-role-gate :allow="['owner', 'admin']" title="Audit log khusus Owner dan Admin"
-                 text="Audit log memuat alamat IP dan aktivitas semua akun. Riwayat pintu dan riwayat barang tetap bisa Anda buka dari menu History.">
+                 text="Log aktivitas Smart Lock berasal dari perangkat pintu. Alamat IP tidak tersedia untuk catatan perangkat.">
 
     <x-table :rows="$audits" caption="Audit log sistem" scroll empty-icon="shield"
-                  empty-title="Audit log masih kosong" empty-text="Setiap tindakan pengguna dan perangkat akan tercatat otomatis di sini.">
+              empty-title="Audit log masih kosong" empty-text="Aktivitas pintu gudang dan alarm akan tampil setelah perangkat mengirim log.">
         <x-slot:toolbar>
             <x-filter-bar placeholder="Cari pengguna atau keterangan">
                 <select name="module" class="input w-auto" aria-label="Modul">

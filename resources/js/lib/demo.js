@@ -70,6 +70,7 @@ function doorStatus() {
 
 /* ---------- Tap kartu RFID untuk registrasi ---------- */
 function rfidPending(url) {
+    if (url.searchParams.has('action')) return { status: 'ok' };
     const since = Number(url.searchParams.get('since')) || Date.now();
     if (Date.now() - since < 4000) return { uid: null };
     const uid = Array.from({ length: 4 }, () => Math.floor(Math.random() * 256).toString(16).padStart(2, '0'))

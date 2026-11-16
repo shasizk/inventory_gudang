@@ -15,20 +15,25 @@
         $attendance ??= collect();
     @endphp
     <x-dev-missing :vars="$__missing" />
-    <x-page-header title="Absensi Teknisi & NOC" description="Tap pertama dihitung absen masuk, tap terakhir di hari yang sama absen keluar." />
+    <x-page-header title="Absensi Teknisi & NOC" description="Tap masuk tercatat saat kartu mendapat akses. Tombol Door Exit dipasangkan ke orang terakhir yang masuk dan belum keluar." />
 
     @php
-        $complete = collect($attendance instanceof \Illuminate\Contracts\Pagination\Paginator ? $attendance->items() : $attendance)->filter(fn ($a) => filled($a->last_tap ?? null))->count();
-        $open = count($attendance) - $complete;
+        $attendanceRows = collect($attendance instanceof \Illuminate\Contracts\Pagination\Paginator ? $attendance->items() : $attendance);
+        $present = $attendanceRows->filter(fn ($a) => filled($a->first_tap ?? null))->count();
+        $complete = $attendanceRows->filter(fn ($a) => filled($a->last_tap ?? null))->count();
+        $absent = $attendanceRows->count() - $present;
+        $open = $present - $complete;
     @endphp
     <p class="mb-4 text-[15px] text-ink-700">
-        <span class="num font-semibold">{{ count($attendance) }}</span> orang tercatat,
+        <span class="num font-semibold">{{ $attendanceRows->count() }}</span> teknisi/NOC terdaftar,
+        <span class="num font-semibold text-in-700">{{ $present }}</span> sudah tap masuk,
         <span class="num font-semibold text-ok-700">{{ $complete }}</span> lengkap,
-        <span class="num font-semibold text-warn-700">{{ $open }}</span> belum tap keluar.
+        <span class="num font-semibold text-warn-700">{{ $open }}</span> belum tap keluar,
+        <span class="num font-semibold text-ink-500">{{ $absent }}</span> belum tap masuk.
     </p>
 
     <x-table :rows="$attendance" empty-icon="clock"
-                  empty-title="Belum ada tap kartu di tanggal ini" empty-text="Absensi muncul setelah Teknisi atau NOC menempelkan kartu di pintu gudang atau ruang ICT.">
+                  empty-title="Belum ada kartu Teknisi atau NOC" empty-text="Daftarkan kartu dengan peran Teknisi atau NOC di menu Kartu RFID agar muncul di absensi.">
         <x-slot:toolbar>
             <x-filter-bar placeholder="Cari nama">
                 <label class="flex items-center gap-2">
@@ -72,6 +77,8 @@
                     @endphp
                     @if ($odd)
                         <x-status-badge status="warning" title="Jam keluar lebih awal dari jam masuk, periksa jam perangkat ESP32">Data tidak wajar</x-status-badge>
+                    @elseif (! filled($a->first_tap))
+                        <x-status-badge status="neutral">Belum tap masuk</x-status-badge>
                     @elseif (filled($a->last_tap))
                         <x-status-badge status="success">Lengkap</x-status-badge>
                     @else

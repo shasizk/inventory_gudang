@@ -15,8 +15,19 @@
     <x-dev-missing :vars="$__missing" />
     <x-page-header title="Riwayat IN/OUT pintu" description="Semua tap kartu di pintu gudang dan ruang ICT, termasuk yang ditolak." />
 
+    <div
+        x-data="doorHistory({
+            endpoint: @js(route('ajax.door.logs.latest', request()->only(['q', 'search', 'door', 'direction', 'result', 'date']))),
+            after: @js($latestLogId),
+            updatedAfter: @js(now()->format('Y-m-d H:i:s')),
+            enabled: @js((int) request('page', 1) === 1),
+        })"
+    >
+    <p class="mb-3 text-xs text-ink-500" aria-live="polite">
+        Pembaruan otomatis setiap 2 detik{{ (int) request('page', 1) === 1 ? '.' : ' tersedia di halaman pertama.' }}
+    </p>
     <x-table :rows="$logs" caption="Riwayat akses pintu" scroll empty-icon="door"
-                  empty-title="Belum ada riwayat akses" empty-text="Setiap tap kartu RFID di pintu akan tercatat di sini.">
+             empty-title="Belum ada riwayat akses" empty-text="Setiap tap kartu RFID di pintu akan tercatat di sini.">
         <x-slot:toolbar>
             <x-filter-bar placeholder="Cari nama atau UID">
                 <select name="door" class="input w-auto" aria-label="Pintu">
@@ -48,26 +59,8 @@
             </tr>
         </x-slot:head>
         @foreach ($logs as $log)
-            <tr @class(['bg-bad-50/50' => $log->result === 'denied'])>
-                <td><x-cell.datetime :value="$log->at" seconds /></td>
-                <td><x-cell.person :name="$log->name" :role="$log->role" /></td>
-                <td><x-status-badge :status="$log->door" /></td>
-                <td><x-status-badge :status="$log->direction" /></td>
-                <td class="text-sm">
-                    @if (($log->method ?? null) === 'two_step')
-                        Verifikasi 2 langkah
-                        <span class="block text-ink-500">{{ $log->companion ? 'Didampingi ' . $log->companion : 'Tanpa pendamping' }}</span>
-                    @else
-                        Kartu RFID langsung
-                    @endif
-                </td>
-                <td>
-                    <x-status-badge :status="$log->result" />
-                    @if ($log->result === 'denied' && $log->reason)
-                        <x-cell.text :value="$log->reason" max="30ch" lines="2" class="mt-1 text-[13px] text-bad-700" />
-                    @endif
-                </td>
-            </tr>
+            @include('pages.history.partials.door-log-row', ['log' => $log])
         @endforeach
     </x-table>
+    </div>
 @endsection

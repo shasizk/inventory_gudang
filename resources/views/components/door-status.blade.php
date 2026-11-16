@@ -1,9 +1,9 @@
-{{-- Widget status Smart Lock di dashboard (data: $store.door, polling /ajax/door/status tiap 5 detik) --}}
+{{-- Widget status Smart Lock di dashboard (data: $store.door, polling /ajax/door/status tiap detik) --}}
 <section {{ $attributes->class('panel overflow-hidden') }} x-data aria-labelledby="door-title">
     <header class="panel-head">
         <div>
             <h2 id="door-title" class="panel-title">Status pintu</h2>
-            <p class="mt-0.5 text-sm text-ink-500">Koneksi perangkat dan verifikasi yang sedang berjalan</p>
+            <p class="mt-0.5 text-sm text-ink-500">Status relay kunci dan sensor fisik pintu gudang</p>
         </div>
         <p class="flex items-center gap-1.5 text-sm text-ink-500" x-show="$store.door.updatedAt" x-cloak>
             <x-icon name="refresh" :size="15" />
@@ -12,7 +12,7 @@
     </header>
 
     <div class="grid sm:grid-cols-2" x-show="$store.door.loading && !$store.door.doors.length" aria-hidden="true">
-        @for ($i = 0; $i < 2; $i++)
+        @for ($i = 0; $i < 1; $i++)
             <div class="space-y-3 p-5 {{ $i ? 'border-concrete-200 sm:border-l' : '' }}">
                 <div class="skeleton h-6 w-36"></div><div class="skeleton h-4 w-48"></div><div class="skeleton h-10 w-full"></div>
             </div>
@@ -23,7 +23,7 @@
         <x-icon name="alert" class="mt-0.5" />
         <div>
             <p class="font-semibold">Status pintu tidak dapat dimuat</p>
-            <p class="text-sm" x-text="$store.door.error + ' Halaman mencoba lagi otomatis tiap 5 detik.'"></p>
+            <p class="text-sm" x-text="$store.door.error + ' Halaman mencoba lagi otomatis.'"></p>
         </div>
     </div>
 
@@ -43,7 +43,27 @@
                          x-bind:class="!door.online ? 'bg-concrete-200 text-ink-500' : (door.locked ? 'bg-ink-900 text-white' : 'bg-hazard-500 text-ink-950')">
                         <span x-show="door.locked"><x-icon name="lock" :size="22" /></span>
                         <span x-show="!door.locked"><x-icon name="unlock" :size="22" /></span>
-                        <span x-text="door.locked ? 'Terkunci' : 'Terbuka'"></span>
+                        <span x-text="door.locked ? 'Terkunci' : 'Kunci terbuka'"></span>
+                    </div>
+                </div>
+                <p class="mt-3 rounded-md px-3 py-2 text-sm font-medium"
+                   x-bind:class="door.door_open === true ? 'bg-hazard-300/30 text-ink-900' : 'bg-concrete-100 text-ink-600'">
+                    <span class="font-semibold">Sensor pintu:</span>
+                    <span x-text="door.door_open === null
+                        ? 'Belum menerima data sensor'
+                        : door.online
+                          ? (door.door_open ? 'Pintu terbuka' : 'Pintu tertutup')
+                          : (door.door_open ? 'Terbuka saat terakhir terhubung' : 'Tertutup saat terakhir terhubung')"></span>
+                </p>
+                <div x-show="door.forced_open" x-cloak
+                     class="mt-3 flex items-start gap-2.5 rounded-md border border-bad-600 bg-bad-50 px-3.5 py-3 text-sm text-bad-700"
+                     role="alert" aria-live="assertive">
+                    <x-icon name="alert" class="mt-0.5 shrink-0" />
+                    <div>
+                        <p class="font-bold">PERINGATAN: PINTU DIBUKA PAKSA</p>
+                        <p x-text="door.forced_open?.message"></p>
+                        <p class="mt-1 text-xs" x-show="door.forced_open?.at"
+                           x-text="'Terdeteksi ' + $store.door.seen({ last_seen: door.forced_open?.at }) + '. Alert hilang setelah sensor membaca pintu tertutup.'"></p>
                     </div>
                 </div>
 
@@ -59,7 +79,7 @@
                                     <p class="font-semibold" x-text="$store.door.phase(door) === 'timeout' ? 'Waktu verifikasi habis' : 'Verifikasi 2 langkah berjalan'"></p>
                                     <p class="text-sm text-ink-700" x-text="$store.door.phase(door) === 'timeout'
                                         ? door.pending.technician + ' perlu tap kartu ulang di pintu.'
-                                        : 'Admin atau Owner tempelkan kartu di reader ' + door.name + '.'"></p>
+                                        : 'Admin tempelkan kartu di reader ' + door.name + '.'"></p>
                                 </div>
                             </div>
                             <ol class="mt-3 grid gap-2 text-sm @lg:grid-cols-3" aria-label="Langkah verifikasi">
@@ -69,7 +89,7 @@
                                 </li>
                                 <li class="flex gap-2 rounded bg-white px-2.5 py-2 ring-2" x-bind:class="$store.door.phase(door) === 'timeout' ? 'ring-bad-600' : 'ring-hazard-500'" aria-current="step">
                                     <span class="grid size-5 shrink-0 place-items-center rounded-full bg-ink-900 text-[11px] font-bold text-white">2</span>
-                                    <span><span class="block font-semibold">Admin/Owner</span><span class="text-ink-500" x-text="$store.door.phase(door) === 'timeout' ? 'Tidak ada tap' : 'Menunggu tap kartu'"></span></span>
+                                    <span><span class="block font-semibold">Admin</span><span class="text-ink-500" x-text="$store.door.phase(door) === 'timeout' ? 'Tidak ada tap' : 'Menunggu tap kartu'"></span></span>
                                 </li>
                                 <li class="flex gap-2 rounded px-2.5 py-2 text-ink-500">
                                     <span class="grid size-5 shrink-0 place-items-center rounded-full border border-ink-300 text-[11px] font-bold">3</span>
@@ -86,7 +106,7 @@
                        x-bind:class="$store.door.events[door.id].type === 'opened' ? 'bg-ok-50 text-ok-700' : 'bg-bad-50 text-bad-700'" role="status">
                         <span x-text="$store.door.events[door.id].type === 'opened'
                             ? 'Verifikasi berhasil. Pintu dibuka untuk ' + $store.door.events[door.id].technician + '.'
-                            : 'Verifikasi gagal: tidak ada tap Admin/Owner dalam 30 detik.'"></span>
+                            : 'Verifikasi gagal: tidak ada tap Admin dalam 30 detik.'"></span>
                     </p>
                 </template>
 

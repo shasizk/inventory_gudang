@@ -7,6 +7,7 @@ import rfidCapture from './components/rfid-capture';
 import crudForm from './components/crud-form';
 import circulationChart from './components/circulation-chart';
 import liveFeed from './components/live-feed';
+import doorHistory from './components/door-history';
 import reportExport from './components/report-export';
 import { barcodeDirective, barcodeGenerator } from './components/barcode';
 import { isDemo } from './lib/util';
@@ -25,6 +26,7 @@ Alpine.data('rfidCapture', rfidCapture);
 Alpine.data('crudForm', crudForm);
 Alpine.data('circulationChart', circulationChart);
 Alpine.data('liveFeed', liveFeed);
+Alpine.data('doorHistory', doorHistory);
 Alpine.data('reportExport', reportExport);
 Alpine.data('barcodeGenerator', barcodeGenerator);
 

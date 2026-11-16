@@ -23,7 +23,7 @@
     </x-page-header>
 
     <x-table :rows="$cards" empty-icon="id-card"
-                  empty-title="Belum ada kartu terdaftar" empty-text="Daftarkan kartu Owner terlebih dahulu, karena Teknisi dan NOC membutuhkan pendamping Admin atau Owner untuk membuka pintu.">
+                  empty-title="Belum ada kartu terdaftar" empty-text="Daftarkan kartu Admin dan Teknisi. Teknisi harus menunggu tap kartu Admin sebelum pintu dibuka.">
         <x-slot:toolbar>
             <x-filter-bar placeholder="Cari UID atau nama pemilik">
                 <select name="role" class="input w-auto" aria-label="Peran">
@@ -52,7 +52,7 @@
                 <td><x-cell.code :value="$card->uid" group /></td>
                 <td><x-cell.text :value="$card->name" max="24ch" strong /></td>
                 <td><x-status-badge :status="$card->role" /></td>
-                <td class="text-sm whitespace-nowrap">{{ in_array(strtolower((string) $card->role), ['owner', 'admin'], true) ? 'Langsung' : 'Wajib didampingi Admin/Owner' }}</td>
+                <td class="text-sm whitespace-nowrap">{{ strtolower((string) $card->role) === 'teknisi' ? 'Menunggu Admin (30 detik)' : 'Langsung' }}</td>
                 <td>
                     @if ($active)
                         <x-status-badge status="success" :icon="false">Aktif</x-status-badge>
@@ -68,7 +68,7 @@
                             <x-icon name="edit" :size="18" />
                         </button>
                         <button type="button" class="btn btn-ghost btn-icon hover:bg-bad-50! hover:text-bad-700!" aria-label="Hapus kartu {{ $card->name }}"
-                                x-on:click="$dispatch('confirm-delete', { url: @js(route('cards.destroy', $card->id)), label: @js('Kartu ' . $card->name), note: 'Kartu langsung tidak bisa membuka pintu. Untuk menonaktifkan sementara, pilih Ubah lalu blokir kartu.' })">
+                                x-on:click="$dispatch('confirm-delete', { url: @js(route('cards.destroy', $card->id, false)), label: @js('Kartu ' . $card->name), note: 'Kartu langsung tidak bisa membuka pintu. Untuk menonaktifkan sementara, pilih Ubah lalu blokir kartu.' })">
                             <x-icon name="trash" :size="18" />
                         </button>
                     </div>
@@ -83,8 +83,8 @@
         <form method="POST" x-bind:action="action" x-on:submit="guard($event)"
               x-data="crudForm({
                   name: 'card-form',
-                  storeUrl: @js(route('cards.store')),
-                  updateUrl: @js(route('cards.update', '__ID__')),
+                  storeUrl: @js(route('cards.store', [], false)),
+                  updateUrl: @js(route('cards.update', '__ID__', false)),
                   defaults: { uid: '', name: '', role: 'teknisi', active: true },
                   old: @js(old() ?: null),
                   reopen: @js($errors->any()),
@@ -102,7 +102,7 @@
 
             <div class="modal-body">
                 {{-- Scan UID: tunggu tap dari reader ESP32, atau reader USB mengetik langsung ke kolom --}}
-                <div x-data="rfidCapture({ endpoint: @js(route('ajax.rfid.pending')) })" x-on:close-modal.window="stop()">
+                <div x-data="rfidCapture({ endpoint: @js(route('ajax.rfid.pending', [], false)) })" x-on:close-modal.window="stop()">
                     <x-field label="UID kartu" name="uid" required>
                         <div class="flex gap-2">
                             <input id="uid" name="uid" x-model="form.uid" required autocomplete="off" spellcheck="false"
@@ -136,9 +136,9 @@
                             </label>
                         @endforeach
                     </div>
-                    <p class="hint" x-text="['owner', 'admin'].includes(form.role)
-                        ? 'Kartu ini membuka pintu langsung dan bisa mendampingi verifikasi Teknisi/NOC.'
-                        : 'Pintu baru terbuka setelah kartu ini di-tap, lalu disusul tap kartu Admin atau Owner.'"></p>
+                    <p class="hint" x-text="form.role === 'teknisi'
+                        ? 'Pintu menunggu tap kartu Admin selama 30 detik setelah kartu Teknisi di-tap.'
+                        : 'Kartu ini dapat membuka pintu langsung.'"></p>
                     @error('role')<p class="error-text">{{ $message }}</p>@enderror
                 </fieldset>
 

@@ -2,6 +2,12 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\View;
+use Illuminate\Http\Request;
+use App\Http\Controllers\Api\DoorApiController;
+use App\Models\DoorLog;
+use App\Models\RfidCard;
+use App\Models\User;
+use Illuminate\Support\Carbon;
 
 $demoRoles = ['owner', 'admin', 'teknisi', 'noc'];
 
@@ -58,13 +64,6 @@ $movements = $rows([
     ['id' => 7, 'at' => now()->subHours(2), 'item_name' => 'ONT ZTE F670L', 'serial' => 'SN-ONT-261002-Q9M1', 'type' => 'out', 'qty' => 1, 'stock_after' => 0, 'user' => 'Fajar Nugroho', 'role' => 'noc'],
     ['id' => 6, 'at' => now()->subHours(3), 'item_name' => 'Kabel UTP Cat6 roll 305 m', 'serial' => '8991002105539', 'type' => 'out', 'qty' => 1, 'stock_after' => 4, 'user' => 'Andi Saputra', 'role' => 'admin'],
     ['id' => 5, 'at' => now()->subDay(), 'item_name' => 'Switch TP-Link TL-SG108', 'serial' => '6935364072339', 'type' => 'in', 'qty' => 5, 'stock_after' => 9, 'user' => 'Dewi Lestari', 'role' => 'owner'],
-]);
-
-$attendance = $rows([
-    ['name' => 'Rizky Pratama', 'role' => 'teknisi', 'date' => now(), 'first_tap' => now()->setTime(7, 52), 'last_tap' => null, 'door' => 'gudang'],
-    ['name' => 'Fajar Nugroho', 'role' => 'noc', 'date' => now(), 'first_tap' => now()->setTime(7, 58), 'last_tap' => now()->setTime(16, 5), 'door' => 'ict'],
-    ['name' => 'Bima Aditya', 'role' => 'teknisi', 'date' => now(), 'first_tap' => now()->setTime(8, 14), 'last_tap' => now()->setTime(12, 40), 'door' => 'gudang'],
-    ['name' => 'Sinta Maharani', 'role' => 'noc', 'date' => now(), 'first_tap' => now()->setTime(13, 2), 'last_tap' => null, 'door' => 'ict'],
 ]);
 
 $doorLogs = $rows([
@@ -163,40 +162,174 @@ Route::prefix('barang-keluar')->group(function () use ($stocks, $movements) {
     ]))->name('barang-keluar.index');
 });
 
-Route::get('/absensi', fn () => view('pages.absensi.index', ['attendance' => $attendance]))->name('absensi.index');
+Route::get('/absensi', function () {
+    $filters = request()->validate([
+        'date' => ['nullable', 'date_format:Y-m-d'],
+        'role' => ['nullable', 'in:teknisi,noc'],
+        'q' => ['nullable', 'string', 'max:100'],
+    ]);
+    $date = Carbon::parse($filters['date'] ?? today()->toDateString());
 
-Route::prefix('user-management')->group(function () use ($rows) {
-    Route::get('/kartu', fn () => view('pages.users.cards', ['cards' => $rows([
-        ['id' => 1, 'uid' => 'A3F2197C', 'name' => 'Dewi Lestari', 'role' => 'owner', 'active' => true, 'created_at' => now()->subMonths(2), 'last_used_at' => now()->subMinutes(1)],
-        ['id' => 2, 'uid' => '5B0E44D1', 'name' => 'Andi Saputra', 'role' => 'admin', 'active' => true, 'created_at' => now()->subMonths(2), 'last_used_at' => now()->subHours(3)],
-        ['id' => 3, 'uid' => 'C7129A3E', 'name' => 'Rizky Pratama', 'role' => 'teknisi', 'active' => true, 'created_at' => now()->subMonth(), 'last_used_at' => now()->subHours(2)],
-        ['id' => 4, 'uid' => '0D8F6B21', 'name' => 'Bima Aditya', 'role' => 'teknisi', 'active' => false, 'created_at' => now()->subMonth(), 'last_used_at' => null],
-    ])]))->name('cards.index');
+    $cards = RfidCard::query()
+        ->whereRaw('LOWER(role) IN (?, ?)', ['teknisi', 'noc'])
+        ->orderBy('name')
+        ->get();
 
-    Route::get('/akun', fn () => view('pages.users.index', ['users' => $rows([
-        ['id' => 1, 'username' => 'dewi.owner', 'email' => 'dewi@gudang.co.id', 'role' => 'owner', 'last_login_at' => now()->subMinutes(30)],
-        ['id' => 2, 'username' => 'andi.admin', 'email' => 'andi@gudang.co.id', 'role' => 'admin', 'last_login_at' => now()->subDay()],
-        ['id' => 3, 'username' => 'rizky.teknisi', 'email' => 'rizky@gudang.co.id', 'role' => 'teknisi', 'last_login_at' => now()->subHours(2)],
-        ['id' => 4, 'username' => 'fajar.noc', 'email' => 'fajar@gudang.co.id', 'role' => 'noc', 'last_login_at' => null],
-    ])]))->name('users.index');
+    $attendanceByUid = $cards->mapWithKeys(function (RfidCard $card) use ($date) {
+        $uid = strtoupper(preg_replace('/[^0-9A-F]/', '', $card->uid));
+
+        return [$uid => (object) [
+            'name' => $card->name,
+            'role' => strtolower($card->role),
+            'date' => $date,
+            'first_tap' => null,
+            'last_tap' => null,
+            'door' => '-',
+        ]];
+    });
+
+    $logs = DoorLog::query()
+        ->whereDate('at', $date->toDateString())
+        ->where('result', 'granted')
+        ->where(function ($query) {
+            $query->where(function ($query) {
+                $query->whereNotNull('uid')
+                    ->whereRaw('LOWER(role) IN (?, ?)', ['teknisi', 'noc']);
+            })->orWhere(function ($query) {
+                $query->where('method', 'exit_button')
+                    ->where('direction', 'out')
+                    ->where('door', 'gudang');
+            });
+        })
+        ->orderBy('at')
+        ->get();
+
+    $inside = [];
+
+    foreach ($logs as $log) {
+        if ($log->method === 'exit_button') {
+            if ($inside) {
+                asort($inside, SORT_NUMERIC);
+                $uid = array_key_last($inside);
+                $attendanceByUid[$uid]->last_tap = $log->at;
+                $attendanceByUid[$uid]->door = $log->door;
+                unset($inside[$uid]);
+            }
+
+            continue;
+        }
+
+        $uid = strtoupper(preg_replace('/[^0-9A-F]/', '', (string) $log->uid));
+
+        if (! isset($attendanceByUid[$uid])) {
+            continue;
+        }
+
+        $attendance = $attendanceByUid[$uid];
+
+        if ($log->direction === 'out') {
+            if ($attendance->first_tap && isset($inside[$uid])) {
+                $attendance->last_tap = $log->at;
+                $attendance->door = $log->door;
+                unset($inside[$uid]);
+            }
+
+            continue;
+        }
+
+        if ($log->direction === 'in') {
+            $attendance->first_tap ??= $log->at;
+            $attendance->door = $log->door;
+            $inside[$uid] = $log->at->timestamp;
+        }
+    }
+
+    $attendance = $attendanceByUid
+        ->filter(fn ($row) => ! ($filters['role'] ?? null) || $row->role === $filters['role'])
+        ->filter(fn ($row, $uid) => ! ($filters['q'] ?? null)
+            || stripos($row->name, $filters['q']) !== false
+            || stripos($uid, $filters['q']) !== false)
+        ->values();
+
+    return view('pages.absensi.index', compact('attendance'));
+})->name('absensi.index');
+
+Route::prefix('user-management')->group(function () {
+    // dipake backend (RfidCardController)
+    // Route::get('/kartu', fn () => view('pages.users.cards', ...))->name('cards.index');
+
+    Route::get('/akun', function () {
+        $users = User::query()
+            ->when(request('search'), function ($query, $search) {
+                $query->where(function ($query) use ($search) {
+                    $query->where('username', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                });
+            })
+            ->orderBy('username')
+            ->paginate(15)
+            ->withQueryString();
+
+        return view('pages.users.index', compact('users'));
+    })->name('users.index');
 });
 
 Route::get('/laporan', fn () => view('pages.laporan.index', [
     'categories' => $categories,
-    'report' => ['stok' => $stocks, 'mutasi' => $movements, 'absensi' => $attendance, 'akses' => $doorLogs],
+    'report' => ['stok' => $stocks, 'mutasi' => $movements, 'absensi' => collect(), 'akses' => $doorLogs],
 ]))->name('laporan.index');
 Route::get('/laporan/export', fn () => response()->json(['message' => 'Ekspor belum diimplementasikan backend.'], 501))->name('laporan.export');
 
 Route::prefix('history')->name('history.')->group(function () use ($rows, $doorLogs, $movements) {
-    Route::get('/pintu', fn () => view('pages.history.door', ['logs' => $doorLogs]))->name('door');
+    // dipake backend (DoorLogController)
+    // Route::get('/pintu', fn () => view('pages.history.door', ['logs' => $doorLogs]))->name('door');
     Route::get('/barang', fn () => view('pages.history.barang', ['movements' => $movements]))->name('barang');
-    Route::get('/audit', fn () => view('pages.history.audit', ['audits' => $rows([
-        ['id' => 5, 'at' => now()->subMinutes(4), 'user' => 'Rizky Pratama', 'role' => 'teknisi', 'module' => 'Barang keluar', 'action' => 'scan', 'description' => 'Scan SN-RTR-261021-A7K2, stok Router MikroTik hEX menjadi 12', 'ip' => '192.168.10.24'],
-        ['id' => 4, 'at' => now()->subMinutes(10), 'user' => 'ESP32 Ruang ICT', 'role' => null, 'module' => 'Smart Lock', 'action' => 'door', 'description' => 'Akses ditolak: UID 4F A1 09 C2 belum terdaftar', 'ip' => null],
-        ['id' => 3, 'at' => now()->subMinutes(25), 'user' => 'Dewi Lestari', 'role' => 'owner', 'module' => 'Barang masuk', 'action' => 'create', 'description' => 'Mencatat 10 unit Modul SFP 1.25G 20 km dari PT Citra Jaringan', 'ip' => '192.168.10.5'],
-        ['id' => 2, 'at' => now()->subHours(1), 'user' => 'Andi Saputra', 'role' => 'admin', 'module' => 'Kartu RFID', 'action' => 'update', 'description' => 'Memblokir kartu Bima Aditya (0D 8F 6B 21)', 'ip' => '192.168.10.7'],
-        ['id' => 1, 'at' => now()->subHours(2), 'user' => 'Dewi Lestari', 'role' => 'owner', 'module' => 'Akun web', 'action' => 'login', 'description' => 'Masuk ke website', 'ip' => '192.168.10.5'],
-    ])]))->name('audit');
+    Route::get('/audit', function (Request $request) {
+        $filters = $request->validate([
+            'q' => ['nullable', 'string', 'max:100'],
+            'module' => ['nullable', 'in:Smart Lock'],
+            'action' => ['nullable', 'in:door,forced_open'],
+            'date' => ['nullable', 'date_format:Y-m-d'],
+        ]);
+
+        $query = DoorLog::query()->where('door', 'gudang')->latest('at');
+
+        if (! empty($filters['q'])) {
+            $search = $filters['q'];
+            $query->where(function ($query) use ($search) {
+                $query->where('name', 'like', "%{$search}%")
+                    ->orWhere('uid', 'like', "%{$search}%")
+                    ->orWhere('reason', 'like', "%{$search}%");
+            });
+        }
+
+        if (($filters['action'] ?? null) === 'forced_open') {
+            $query->where('method', 'alarm');
+        } elseif (($filters['action'] ?? null) === 'door') {
+            $query->where('method', '!=', 'alarm');
+        }
+
+        if (! empty($filters['date'])) {
+            $query->whereDate('at', $filters['date']);
+        }
+
+        $logs = $query->paginate(25)->withQueryString();
+        $audits = $logs->through(fn (DoorLog $log) => (object) [
+            'id' => $log->id,
+            'at' => $log->at,
+            'user' => $log->name,
+            'role' => $log->role,
+            'module' => 'Smart Lock',
+            'action' => $log->method === 'alarm' ? 'forced_open' : 'door',
+            'description' => trim(implode(' — ', array_filter([
+                $log->reason,
+                $log->uid ? 'UID ' . $log->uid : null,
+            ]))),
+            'ip' => null,
+        ]);
+
+        return view('pages.history.audit', compact('audits'));
+    })->name('audit');
 });
 
 /* ---------- Stub aksi form (POST/PUT/DELETE) ---------- */
@@ -205,7 +338,7 @@ $resources = [
     // 'kategori' => 'barang-masuk/kategori',
     // 'serial' => 'barang-masuk/serial-number',
     'barang-masuk' => 'barang-masuk',
-    'cards' => 'user-management/kartu',
+    // 'cards' => 'user-management/kartu',
     'users' => 'user-management/akun',
 ];
 $stub = fn (string $message) => fn () => $isDemo()
@@ -224,8 +357,9 @@ foreach ($resources as $name => $path) {
 */
 Route::prefix('ajax')->name('ajax.')->group(function () {
     $notYet = fn () => response()->json(['message' => 'Endpoint belum diimplementasikan backend.'], 501);
-    Route::get('/door/status', $notYet)->name('door.status');
-    Route::get('/rfid/pending', $notYet)->name('rfid.pending');
+    Route::get('/door/status', [DoorApiController::class, 'status'])->name('door.status');
+    // dipake backend (DoorApiController@pending)
+    // Route::get('/rfid/pending', $notYet)->name('rfid.pending');
     Route::get('/activity/latest', $notYet)->name('activity.latest');
     Route::get('/stats/circulation', $notYet)->name('stats.circulation');
     Route::get('/barang/lookup', $notYet)->name('barang.lookup');

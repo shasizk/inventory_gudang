@@ -1,5 +1,5 @@
 {{--
-    Notifikasi melayang untuk Admin/Owner di SEMUA halaman saat Teknisi/NOC menunggu verifikasi.
+    Notifikasi melayang saat kartu Teknisi menunggu tap Admin.
     Sengaja bukan modal yang memblokir layar: Admin mungkin sedang mengisi form atau scan barang,
     dan tindakan yang diminta (tap kartu) terjadi di reader fisik, bukan di layar.
     Dipasang di layout, hanya dirender untuk peran owner/admin.
@@ -24,7 +24,7 @@
                 </button>
                 <div class="min-w-0 flex-1" x-show="!minimized">
                     <p class="font-semibold leading-snug" x-text="$store.door.phase(door) === 'timeout' ? 'Waktu verifikasi habis' : door.pending.technician + ' menunggu di ' + door.name"></p>
-                    <p class="text-sm leading-snug text-ink-500" x-text="$store.door.phase(door) === 'timeout' ? 'Minta ' + door.pending.technician + ' tap kartu ulang.' : 'Tempelkan kartu Admin/Owner Anda di reader pintu.'"></p>
+                    <p class="text-sm leading-snug text-ink-500" x-text="$store.door.phase(door) === 'timeout' ? 'Minta ' + door.pending.technician + ' tap kartu ulang.'                     : 'Minta Admin menempelkan kartu di reader pintu.'"></p>
                 </div>
                 <p class="min-w-0 truncate pr-1 text-sm font-semibold" x-show="minimized" x-text="door.short + ' menunggu'"></p>
                 <button type="button" class="btn btn-ghost btn-icon shrink-0" x-on:click="minimized = !minimized" x-bind:aria-label="minimized ? 'Perbesar notifikasi' : 'Perkecil notifikasi'">
