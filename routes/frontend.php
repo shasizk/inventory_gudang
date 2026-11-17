@@ -4,6 +4,8 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\View;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Api\DoorApiController;
+use App\Http\Controllers\AttendanceController;
+use App\Models\Attendance;
 use App\Models\DoorLog;
 use App\Models\RfidCard;
 use App\Models\User;
@@ -142,6 +144,13 @@ Route::get('/dashboard', fn () => view('pages.dashboard', [
     ]))->name('barang-masuk.index');
 });
 
+Route::get('/absensi', [AttendanceController::class, 'index'])->name('absensi.index');
+Route::post('/absensi/check-in', [AttendanceController::class, 'checkIn'])->name('absensi.check-in');
+Route::post('/absensi/check-out', [AttendanceController::class, 'checkOut'])->name('absensi.check-out');
+Route::get('/absensi/{attendance}/foto/{type}', [AttendanceController::class, 'photo'])
+    ->whereIn('type', ['check-in', 'check-out'])
+    ->name('absensi.photo');
+
 Route::prefix('barang-keluar')->group(function () use ($stocks, $movements) {
     Route::get('/stok', function () use ($stocks) {
         $state = fn ($s) => $s->stock === 0 ? 'habis' : ($s->stock <= $s->min_stock ? 'menipis' : 'aman');
@@ -162,97 +171,99 @@ Route::prefix('barang-keluar')->group(function () use ($stocks, $movements) {
     ]))->name('barang-keluar.index');
 });
 
-Route::get('/absensi', function () {
-    $filters = request()->validate([
-        'date' => ['nullable', 'date_format:Y-m-d'],
-        'role' => ['nullable', 'in:teknisi,noc'],
-        'q' => ['nullable', 'string', 'max:100'],
-    ]);
-    $date = Carbon::parse($filters['date'] ?? today()->toDateString());
 
-    $cards = RfidCard::query()
-        ->whereRaw('LOWER(role) IN (?, ?)', ['teknisi', 'noc'])
-        ->orderBy('name')
-        ->get();
 
-    $attendanceByUid = $cards->mapWithKeys(function (RfidCard $card) use ($date) {
-        $uid = strtoupper(preg_replace('/[^0-9A-F]/', '', $card->uid));
+// Route::get('/absensi', function () {
+//     $filters = request()->validate([
+//         'date' => ['nullable', 'date_format:Y-m-d'],
+//         'role' => ['nullable', 'in:teknisi,noc'],
+//         'q' => ['nullable', 'string', 'max:100'],
+//     ]);
+//     $date = Carbon::parse($filters['date'] ?? today()->toDateString());
 
-        return [$uid => (object) [
-            'name' => $card->name,
-            'role' => strtolower($card->role),
-            'date' => $date,
-            'first_tap' => null,
-            'last_tap' => null,
-            'door' => '-',
-        ]];
-    });
+//     $cards = RfidCard::query()
+//         ->whereRaw('LOWER(role) IN (?, ?)', ['teknisi', 'noc'])
+//         ->orderBy('name')
+//         ->get();
 
-    $logs = DoorLog::query()
-        ->whereDate('at', $date->toDateString())
-        ->where('result', 'granted')
-        ->where(function ($query) {
-            $query->where(function ($query) {
-                $query->whereNotNull('uid')
-                    ->whereRaw('LOWER(role) IN (?, ?)', ['teknisi', 'noc']);
-            })->orWhere(function ($query) {
-                $query->where('method', 'exit_button')
-                    ->where('direction', 'out')
-                    ->where('door', 'gudang');
-            });
-        })
-        ->orderBy('at')
-        ->get();
+//     $attendanceByUid = $cards->mapWithKeys(function (RfidCard $card) use ($date) {
+//         $uid = strtoupper(preg_replace('/[^0-9A-F]/', '', $card->uid));
 
-    $inside = [];
+//         return [$uid => (object) [
+//             'name' => $card->name,
+//             'role' => strtolower($card->role),
+//             'date' => $date,
+//             'first_tap' => null,
+//             'last_tap' => null,
+//             'door' => '-',
+//         ]];
+//     });
 
-    foreach ($logs as $log) {
-        if ($log->method === 'exit_button') {
-            if ($inside) {
-                asort($inside, SORT_NUMERIC);
-                $uid = array_key_last($inside);
-                $attendanceByUid[$uid]->last_tap = $log->at;
-                $attendanceByUid[$uid]->door = $log->door;
-                unset($inside[$uid]);
-            }
+//     $logs = DoorLog::query()
+//         ->whereDate('at', $date->toDateString())
+//         ->where('result', 'granted')
+//         ->where(function ($query) {
+//             $query->where(function ($query) {
+//                 $query->whereNotNull('uid')
+//                     ->whereRaw('LOWER(role) IN (?, ?)', ['teknisi', 'noc']);
+//             })->orWhere(function ($query) {
+//                 $query->where('method', 'exit_button')
+//                     ->where('direction', 'out')
+//                     ->where('door', 'gudang');
+//             });
+//         })
+//         ->orderBy('at')
+//         ->get();
 
-            continue;
-        }
+//     $inside = [];
 
-        $uid = strtoupper(preg_replace('/[^0-9A-F]/', '', (string) $log->uid));
+//     foreach ($logs as $log) {
+//         if ($log->method === 'exit_button') {
+//             if ($inside) {
+//                 asort($inside, SORT_NUMERIC);
+//                 $uid = array_key_last($inside);
+//                 $attendanceByUid[$uid]->last_tap = $log->at;
+//                 $attendanceByUid[$uid]->door = $log->door;
+//                 unset($inside[$uid]);
+//             }
 
-        if (! isset($attendanceByUid[$uid])) {
-            continue;
-        }
+//             continue;
+//         }
 
-        $attendance = $attendanceByUid[$uid];
+//         $uid = strtoupper(preg_replace('/[^0-9A-F]/', '', (string) $log->uid));
 
-        if ($log->direction === 'out') {
-            if ($attendance->first_tap && isset($inside[$uid])) {
-                $attendance->last_tap = $log->at;
-                $attendance->door = $log->door;
-                unset($inside[$uid]);
-            }
+//         if (! isset($attendanceByUid[$uid])) {
+//             continue;
+//         }
 
-            continue;
-        }
+//         $attendance = $attendanceByUid[$uid];
 
-        if ($log->direction === 'in') {
-            $attendance->first_tap ??= $log->at;
-            $attendance->door = $log->door;
-            $inside[$uid] = $log->at->timestamp;
-        }
-    }
+//         if ($log->direction === 'out') {
+//             if ($attendance->first_tap && isset($inside[$uid])) {
+//                 $attendance->last_tap = $log->at;
+//                 $attendance->door = $log->door;
+//                 unset($inside[$uid]);
+//             }
 
-    $attendance = $attendanceByUid
-        ->filter(fn ($row) => ! ($filters['role'] ?? null) || $row->role === $filters['role'])
-        ->filter(fn ($row, $uid) => ! ($filters['q'] ?? null)
-            || stripos($row->name, $filters['q']) !== false
-            || stripos($uid, $filters['q']) !== false)
-        ->values();
+//             continue;
+//         }
 
-    return view('pages.absensi.index', compact('attendance'));
-})->name('absensi.index');
+//         if ($log->direction === 'in') {
+//             $attendance->first_tap ??= $log->at;
+//             $attendance->door = $log->door;
+//             $inside[$uid] = $log->at->timestamp;
+//         }
+//     }
+
+//     $attendance = $attendanceByUid
+//         ->filter(fn ($row) => ! ($filters['role'] ?? null) || $row->role === $filters['role'])
+//         ->filter(fn ($row, $uid) => ! ($filters['q'] ?? null)
+//             || stripos($row->name, $filters['q']) !== false
+//             || stripos($uid, $filters['q']) !== false)
+//         ->values();
+
+//     return view('pages.absensi.index', compact('attendance'));
+// })->name('absensi.index');
 
 Route::prefix('user-management')->group(function () {
     // dipake backend (RfidCardController)
@@ -277,6 +288,13 @@ Route::prefix('user-management')->group(function () {
 Route::get('/laporan', fn () => view('pages.laporan.index', [
     'categories' => $categories,
     'report' => ['stok' => $stocks, 'mutasi' => $movements, 'absensi' => collect(), 'akses' => $doorLogs],
+    'absensi' => Attendance::with('user')->latest('attendance_date')->limit(20)->get()->map(fn ($row) => (object) [
+            'name' => $row->user->name,
+            'role' => $row->user->role,
+            'date' => $row->attendance_date,
+            'first_tap' => $row->check_in_at,
+            'last_tap' => $row->check_out_at,
+        ]),
 ]))->name('laporan.index');
 Route::get('/laporan/export', fn () => response()->json(['message' => 'Ekspor belum diimplementasikan backend.'], 501))->name('laporan.export');
 

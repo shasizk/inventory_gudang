@@ -2,17 +2,17 @@
     $role = $currentRole ?? 'guest';
     // [label, icon, nama route, pola routeIs untuk status aktif]
     $nav = [
-        ['items' => [['Dashboard', 'home', 'dashboard', 'dashboard']]],
-        ['group' => 'Barang masuk', 'items' => [
+        ['roles' => ['owner', 'admin'], 'items' => [['Dashboard', 'home', 'dashboard', 'dashboard']]],
+        ['group' => 'Barang masuk', 'roles' => ['owner'], 'items' => [
             ['Kategori barang', 'tag', 'kategori.index', 'kategori.*'],
             ['Serial number', 'barcode', 'serial.index', 'serial.*'],
             ['Barang masuk', 'arrow-in', 'barang-masuk.index', 'barang-masuk.*'],
         ]],
-        ['group' => 'Barang keluar', 'items' => [
+        ['group' => 'Barang keluar', 'roles' => ['owner', 'admin', 'teknisi', 'noc'], 'items' => [
             ['Stok barang', 'boxes', 'stok.index', 'stok.*'],
             ['Barang keluar', 'arrow-out', 'barang-keluar.index', 'barang-keluar.*'],
         ]],
-        ['group' => 'Absensi', 'items' => [
+        ['group' => 'Absensi', 'roles' => ['owner', 'admin', 'teknisi', 'noc'], 'items' => [
             ['Absensi Teknisi & NOC', 'clock', 'absensi.index', 'absensi.*'],
         ]],
         ['group' => 'User management', 'roles' => ['owner', 'admin'], 'items' => [
@@ -22,7 +22,7 @@
         ['group' => 'Laporan', 'roles' => ['owner', 'admin'], 'items' => [
             ['Laporan & ekspor', 'file', 'laporan.index', 'laporan.*'],
         ]],
-        ['group' => 'History', 'items' => [
+        ['group' => 'History', 'roles' => ['owner', 'admin'], 'items' => [
             ['Riwayat pintu', 'door', 'history.door', 'history.door'],
             ['Riwayat barang', 'history', 'history.barang', 'history.barang'],
             // Audit log berisi IP & aktivitas semua akun: khusus Owner/Admin

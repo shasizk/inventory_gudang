@@ -9,6 +9,8 @@ import circulationChart from './components/circulation-chart';
 import liveFeed from './components/live-feed';
 import doorHistory from './components/door-history';
 import reportExport from './components/report-export';
+import attendanceCamera from './components/attendance-camera';
+import realTimeClock from './components/real-time-clock';
 import { barcodeDirective, barcodeGenerator } from './components/barcode';
 import { isDemo } from './lib/util';
 
@@ -28,6 +30,8 @@ Alpine.data('circulationChart', circulationChart);
 Alpine.data('liveFeed', liveFeed);
 Alpine.data('doorHistory', doorHistory);
 Alpine.data('reportExport', reportExport);
+Alpine.data('attendanceCamera', attendanceCamera);
+Alpine.data('realTimeClock', realTimeClock);
 Alpine.data('barcodeGenerator', barcodeGenerator);
 
 /*
